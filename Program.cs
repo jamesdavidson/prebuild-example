@@ -2,9 +2,11 @@
 using clojure.lang;
 using System.Reflection;
 
-string assemblyPath = Path.Combine(AppContext.BaseDirectory, "MyAssemblyWithResource.dll");
+// see config in csproj
+string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ClojureDepsBundle.dll");
 Assembly.LoadFrom(assemblyPath);
 
+// need to make dependencies available so that (ns foo (:import Bar.Baz)) works cleanly
 Assembly.Load("Parquet");
 
 #if DEBUG

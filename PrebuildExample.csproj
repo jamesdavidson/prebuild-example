@@ -8,7 +8,7 @@
     <PackageReference Include="Clojure" Version="1.12.3-alpha4" />
     <PackageReference Include="Parquet.Net" Version="5.3.0" />
   </ItemGroup>
-  <Target Name="BundleDeps" BeforeTargets="Build" Inputs="deps.edn" Outputs="$(TargetDir)MyAssemblyWithResource.dll">
-    <Exec Command="cljr -Sforce -A:prebuild --main bundle $(TargetDir)" />
+  <Target Name="BundleDeps" BeforeTargets="Build" Inputs="deps.edn" Outputs="$(TargetDir)ClojureDepsBundle.dll">
+    <Exec Command="cljr -Sforce -A:prebuild --main bundle $(TargetDir)ClojureDepsBundle.dll" />
   </Target>
 </Project>

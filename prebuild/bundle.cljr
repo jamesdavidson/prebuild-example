@@ -9,7 +9,7 @@
   (:require [clojure.clr.io :as io]
             [clojure.string :as string]))
 
-(defn get-files [path]
+(defn get-library-files [path]
   (->> (DirectoryInfo. path)
        file-seq
        (filter (partial instance? FileInfo))
@@ -22,19 +22,18 @@
        (map #(update % :resource string/replace (str Path/DirectorySeparatorChar) "."))))
 
 (defn get-all-files [clojureLoadPath]
-  (let [ret (into [] (mapcat get-files (.Split clojureLoadPath (char-array [Path/PathSeparator]))))
+  (let [ret (into [] (mapcat get-library-files (.Split clojureLoadPath (char-array [Path/PathSeparator]))))
         resource-keys (into #{} (map :resource ret))]
     (assert (= (count resource-keys) (count ret)) "input file clash")
     ret))
 
-(defn create [{:keys [outdir]}]
+(defn create [{:keys [outfile loadpath]}]
   (let [ab (new PersistedAssemblyBuilder (new AssemblyName "MyAssembly") (.-Assembly Object) nil)
         _  (.DefineDynamicModule ab "MyModule")
         ilStream nil
         metadata (.GenerateMetadata ab (by-ref ilStream) (by-ref _))
         resourceBlob (new BlobBuilder 256)
-        clojureLoadPath (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")
-        files-to-bundle (get-all-files clojureLoadPath)]
+        files-to-bundle (get-all-files loadpath)]
     ;; add file contents as manifest resources (updating offset as we go)
     (reduce
       (fn [offset {:keys [fullname resource]}]
@@ -65,8 +64,9 @@
                                           )
           blob (new BlobBuilder 256)]
       (.Serialize peBuilder blob)
-      (with-open [fileStream (new FileStream (Path/Combine outdir "MyAssemblyWithResource.dll") FileMode/Create FileAccess/Write)]
+      (with-open [fileStream (new FileStream outfile FileMode/Create FileAccess/Write)]
         (.WriteContentTo blob fileStream)))))
 
 (defn -main [& args]
-  (create {:outdir (first args)}))
+  (create {:outfile (first args)
+           :loadpath (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")}))
