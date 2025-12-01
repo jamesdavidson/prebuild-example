@@ -1,0 +1,72 @@
+(ns bundle
+  (:use clojure.repl clojure.pprint)
+  (:import [System.IO Path File FileAccess FileInfo FileMode FileStream DirectoryInfo]
+           [System.Reflection AssemblyName #_ManifestResourceAttributes]
+           [System.Reflection.Emit PersistedAssemblyBuilder]
+           [System.Reflection.Metadata BlobBuilder EntityHandle MethodDefinitionHandle]
+           [System.Reflection.Metadata.Ecma335 MetadataRootBuilder MetadataBuilder]
+           [System.Reflection.PortableExecutable CorFlags ManagedPEBuilder PEHeaderBuilder])
+  (:require [clojure.clr.io :as io]
+            [clojure.string :as string]))
+
+(defn get-files [path]
+  (->> (DirectoryInfo. path)
+       file-seq
+       (filter (partial instance? FileInfo))
+       (keep #(let [fullname (.FullName %)
+                    idx (string/last-index-of fullname ".")
+                    extension (.Substring fullname idx)]
+                (when (contains? #{".clj" ".cljr" ".cljc"} extension)
+                      {:fullname fullname
+                       :resource (Path/GetRelativePath path fullname)})))
+       (map #(update % :resource string/replace (str Path/DirectorySeparatorChar) "."))))
+
+(defn get-all-files [clojureLoadPath]
+  (let [ret (into [] (mapcat get-files (.Split clojureLoadPath (char-array [Path/PathSeparator]))))
+        resource-keys (into #{} (map :resource ret))]
+    (assert (= (count resource-keys) (count ret)) "input file clash")
+    ret))
+
+(defn create [{:keys [outdir]}]
+  (let [ab (new PersistedAssemblyBuilder (new AssemblyName "MyAssembly") (.-Assembly Object) nil)
+        _  (.DefineDynamicModule ab "MyModule")
+        ilStream nil
+        metadata (.GenerateMetadata ab (by-ref ilStream) (by-ref _))
+        resourceBlob (new BlobBuilder 256)
+        clojureLoadPath (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")
+        files-to-bundle (get-all-files clojureLoadPath)]
+    ;; add file contents as manifest resources (updating offset as we go)
+    (reduce
+      (fn [offset {:keys [fullname resource]}]
+        (let [bs (File/ReadAllBytes fullname)]
+          (.AddManifestResource metadata
+            (int 1) ; ManifestResourceAttributes/Public
+            (.GetOrAddString metadata resource)
+            (new EntityHandle) ; implementation: default,
+            (uint offset))
+          (.WriteInt32 resourceBlob (.Length bs))
+          (.WriteBytes resourceBlob bs)
+          ;; int32 is 4 bytes
+          (+ offset 4 (.Length bs))))
+      0
+      files-to-bundle)
+    ;; now set up portal executable (dll) serialization stuff
+    (let [peBuilder (new ManagedPEBuilder (PEHeaderBuilder/CreateLibraryHeader)
+                                          (new MetadataRootBuilder metadata nil nil)
+                                          ilStream
+                                          nil ; mappedFieldData
+                                          resourceBlob
+                                          nil ; nativeResources
+                                          nil ; debugDirectoryBuilder
+                                          128 ; strongNameSignatureSize
+                                          (new MethodDefinitionHandle) ; entryPoint
+                                          CorFlags/ILOnly ; flags
+                                          nil ; deterministicIdProvider
+                                          )
+          blob (new BlobBuilder 256)]
+      (.Serialize peBuilder blob)
+      (with-open [fileStream (new FileStream (Path/Combine outdir "MyAssemblyWithResource.dll") FileMode/Create FileAccess/Write)]
+        (.WriteContentTo blob fileStream)))))
+
+(defn -main [& args]
+  (create {:outdir (first args)}))

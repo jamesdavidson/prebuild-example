@@ -1,0 +1,33 @@
+(ns example.demo
+  (:use clojure.repl clojure.pprint)
+  (:import [Parquet ParquetWriter Data.DataColumn]
+           [Parquet.Schema DataField ParquetSchema]
+           [System.IO File Path]
+           [System.Threading CancellationToken]))
+
+(def schema
+  (new ParquetSchema
+    (into-array [(new DataField "Timestamp" DateTime nil nil nil)
+                 (new DataField "Elapsed" Int64 nil nil nil)])))
+
+(def timestamp-col
+  (new DataColumn
+    (nth (.Fields schema) 0)
+    (into-array
+      [(new DateTime 2025, 11, 18, 22, 7, 0)
+       (new DateTime 2025, 11, 18, 22, 8, 0)
+       (new DateTime 2025, 11, 18, 22, 9, 0)])))
+
+(def elapsed-col
+  (new DataColumn
+    (nth (.Fields schema) 1)
+    (into-array (map inc (range 3)))))
+
+(def ^:private task-await #(-> % .Result))
+
+(with-open [fs (File/OpenWrite "data1.parquet")
+            w (task-await (ParquetWriter/CreateAsync schema fs nil false CancellationToken/None))
+            groupWriter (.CreateRowGroup w)]
+  (task-await (.WriteColumnAsync groupWriter timestamp-col CancellationToken/None))
+  (task-await (.WriteColumnAsync groupWriter elapsed-col CancellationToken/None))
+  :done)

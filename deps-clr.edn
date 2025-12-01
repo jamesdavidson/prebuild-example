@@ -1,0 +1,4 @@
+{:paths ["src/main/clojure"]
+ :deps {io.github.dmiller/data.csv {:git/sha "faa419961f3a74aa113c7c7ef7ec6f1bc6d9458e"}
+        io.github.clojure/clr.data.json {:git/tag "v2.5.1" :git/sha "f84cb88"}}
+ :aliases {:prebuild {:extra-paths ["prebuild"]}}}
