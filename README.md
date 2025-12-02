@@ -39,7 +39,6 @@ may not wish to carry forward in his compiler rewrite. Not an official API.
 
 ## Questions
 
- - Does this "just work" in Visual Studio too? I have not yet tried.
  - How does this fit in with `<PublishSingleFile>` and/or AOT?
  - What if I have both a git lib and a NuGet for the same namespaces?
  - Could my git libs have their own dependencies from NuGet?
