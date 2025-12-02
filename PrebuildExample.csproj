@@ -11,4 +11,7 @@
   <Target Name="BundleDeps" BeforeTargets="Build" Inputs="deps.edn" Outputs="$(TargetDir)ClojureDepsBundle.dll">
     <Exec Command="cljr -Sforce -A:prebuild --main bundle $(TargetDir)ClojureDepsBundle.dll" />
   </Target>
+  <Target Name="CleanDeps" AfterTargets="Clean">
+    <Delete Files="$(TargetDir)ClojureDepsBundle.dll" />
+  </Target>
 </Project>
