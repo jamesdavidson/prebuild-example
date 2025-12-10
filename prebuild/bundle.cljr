@@ -22,7 +22,10 @@
        (map #(update % :resource string/replace (str Path/DirectorySeparatorChar) "."))))
 
 (defn get-all-files [clojureLoadPath]
-  (let [ret (into [] (mapcat get-library-files (.Split clojureLoadPath (char-array [Path/PathSeparator]))))
+  (let [ret (->> (.Split clojureLoadPath (char-array [Path/PathSeparator]))
+                 (filter Path/IsPathRooted)
+                 (mapcat get-library-files)
+                 (into []))
         resource-keys (into #{} (map :resource ret))]
     (assert (= (count resource-keys) (count ret)) "input file clash")
     ret))

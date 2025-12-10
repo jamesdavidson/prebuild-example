@@ -1,6 +1,7 @@
 // based on Clojure/Clojure.Main/Main.cs original copyright Rich Hickey (EPL 1.0)
 using clojure.lang;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 // see config in csproj
 string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ClojureDepsBundle.dll");
@@ -12,6 +13,10 @@ Assembly.Load("Parquet");
 #if DEBUG
 Environment.SetEnvironmentVariable("clojure.server.prepl","{:port,5555,:accept,clojure.core.server/io-prepl,:server-daemon,false}");
 #endif
+
+// better to get :paths from deps-clr.edn rather than this hacky workaround
+string GetBaseDirectory( [CallerFilePath] string? callerFilePath = null ) => callerFilePath?.Replace("Program.cs","") ?? "";
+Environment.SetEnvironmentVariable("CLOJURE_LOAD_PATH", Path.Combine(GetBaseDirectory(), "src/main/clojure"));
 
 RT.Init();
 
